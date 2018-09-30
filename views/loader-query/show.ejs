@@ -1,0 +1,345 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport"
+          content="width=device-width, initial-scale=1.0,minimum-scale=1.0, maximum-scale=1.0, user-scalable=no"/>
+    <meta content="yes" name="apple-mobile-web-app-capable"/>
+    <meta content="black" name="apple-mobile-web-app-status-bar-style"/>
+    <meta content="telephone=no" name="format-detection"/>
+    <meta content="email=no" name="format-detection"/>
+    <title>武当山景区数据展示</title>
+    <link rel="stylesheet" type="text/css" href="/stylesheets/reset.css"/>
+    <link rel="stylesheet" type="text/css" href="/stylesheets/common.css">
+    <link rel="stylesheet" type="text/css" href="/stylesheets/calendar.css">
+    <link rel="stylesheet" type="text/css" href="/stylesheets/loader-query-show.css">
+    <script type="text/javascript" src="/javascripts/jquery-1.8.3.min.js"></script>
+    <script type="text/javascript" src="/javascripts/public.js"></script>
+    <script type="text/javascript" src="/javascripts/jquery.calendar.js"></script>
+</head>
+<body>
+    <div class="num-box">
+        <div class="num-top">
+            <p class="logo"></p>
+            <p class="top-font">今日实时数据</p>
+            <p class="top-num" id="salesusercount"><%= data.salesusercount%></p>
+            <p class="bottom-font">总人次</p>
+        </div>
+        <div class="num-bottom">
+            <div class="num-row1">
+                <div class="num-row1-col1">
+                    <p class="people-check" id="checkusercount"><%= data.checkusercount%></p>
+                    <p>已检人次</p>
+                </div>
+                <div class="num-row1-col2">
+                    <p class="people-check" id="notcheckusercount"><%= data.notcheckusercount%></p>
+                    <p>未检人次</p>
+                </div>
+            </div>
+            <div class="num-row2">
+                <ul>
+                    <li><span>窗口购票</span><span id="offsalesusercount"><%= data.offsalesusercount%></span></li>
+                    <li><span>线上商城</span><span id="onsalesusercount"><%= data.onsalesusercount%></span></li>
+                    <li><span>旅行社</span><span id="travelagencyusercount"><%= data.travelagencyusercount%></span></li>
+                    <li><span>二次入园</span><span id="twogardenusercount"><%= data.twogardenusercount%></span></li>
+                </ul>
+            </div>
+            <div class="num-row3">
+                <div class="num-row3-title"><span>数据统计</span><span>(未来7日预计)</span></div>
+                <div class="echarts-box" id="echarts-main">
+
+                </div>
+            </div>
+            <div class="num-row4">
+                <div class="num-row4-title">
+                    <span>历史数据</span>
+                    <span class="time-picker"><%= timePickerShow %></span>
+                </div>
+                <p>共计 <span id="historycheckusercount"><%=data.checkusercount %></span> (人次)</p>
+            </div>
+        </div>
+    </div>
+    <div class="foot-box">技术支持：深大智能·智游宝</div>
+    <div id="timePicker"></div>
+    <script type="text/javascript" src="/javascripts/echarts.min.js"></script>
+    <script>
+        $(function () {
+            $(".time-picker").click(function (e) {
+                $("#timePicker").show()
+                $("#timePicker").calendar({
+                    multipleMonth: 1,
+                    multipleSelect: true,
+                    showMonth: true,
+                    click: function (date){
+                    },
+                    confirmClick:function (date){
+                        console.log(date);
+                        $("#timePicker").hide()
+                        historyData(date)
+                        // if(date.length>=2){
+                        //     $("#timePicker").hide()
+                        //     var date2 = [date[0],date.pop()]
+                        //
+                        // }
+                    },
+                })
+
+
+            })
+            //获取今日数据
+            // function getParkUserInfo() {
+            //     var url = "<%= url %>/api/Main/GetParkUserInfo"
+            //     var myDate = new Date();
+            //     var fullYear = myDate.getFullYear();
+            //     var month = myDate.getMonth()+1;
+            //     if(month.toString().length<2){
+            //         month = "0"+month
+            //     }
+            //     var day = myDate.getDate();
+            //     var bDate = fullYear+"-"+month+"-"+day+" 00:00:00"
+            //     var eDate = fullYear+"-"+month+"-"+day+" 23:59:59"
+            //     $.ajax({
+            //         type:"post",
+            //         url:url,
+            //         data:{
+            //             BDATE:bDate,
+            //             EDATE:eDate,
+            //             PARKCODE :"001001",
+            //         },
+            //         dataType:"json",
+            //         success:function (data) {
+            //             if(data.isSuc){
+            //                 var res = data.data[0]
+            //                 $("#salesusercount").text(res.salesusercount);
+            //
+            //                 $("#checkusercount").text(res.checkusercount);
+            //                 $("#notcheckusercount").text(res.notcheckusercount);
+            //
+            //                 $("#offsalesusercount").text(res.offsalesusercount);
+            //                 $("#onsalesusercount").text(res.onsalesusercount);
+            //                 $("#travelagencyusercount").text(res.travelagencyusercount);
+            //                 $("#twogardenusercount").text(res.twogardenusercount);
+            //             }
+            //         },
+            //         error:function (data) {
+            //             alert("请求数据失败");
+            //         }
+            //     })
+            // };
+            // getParkUserInfo();
+
+            //数据统计
+            function getSevenUserCount() {
+                var url = "<%= url %>/api/Main/GetSevenUserCount"
+                $.ajax({
+                    type:"post",
+                    url:url,
+                    dataType:"json",
+                    success:function (data) {
+                        if(data.isSuc){
+                            var res = data.data;
+                            var xAxisData = [];
+                            var seriesData = [];
+                            for(var index in res){
+                                var dateArr = res[index].traveldate.split("-");
+                                var usercountObj = {
+                                    value:res[index].usercount,
+                                    symbol: 'emptyCircle'
+                                }
+                                // if(res[index].days==4){
+                                //     usercountObj = {
+                                //         value:res[index].usercount,
+                                //         symbol: 'emptyCircle'
+                                //     }
+                                // }
+                                xAxisData.push(dateArr[1]+"."+dateArr[2])
+                                seriesData.push(usercountObj)
+                            }
+                            sevenUserCount({xAxisData:xAxisData,seriesData:seriesData})
+                        }
+                    },
+                    error:function (data) {
+                        alert("请求数据失败");
+                    }
+                })
+            }
+            getSevenUserCount();
+
+            //图表
+            function sevenUserCount(option){
+                var myChart = echarts.init(document.getElementById("echarts-main"));
+                var option = {
+                    // title:{
+                    //     text:"数据统计",
+                    //     subtext:"(未来7日预计)",
+                    //     subtextStyle:{
+                    //         align:"right"
+                    //     }
+                    // },
+                    tooltip:{
+                        trigger:'axis',
+                        axisPointer:{
+                            lineStyle:{
+                                color:"#c8a77c",
+                                width:2,
+                                type:"dashed"
+                            }
+                        }
+                    },
+                    xAxis:[
+                        {
+                            type: "category",
+                            // boundaryGap:false,
+                            data:option.xAxisData,
+                            axisLine:{
+                                lineStyle:{
+                                    type:"solid",
+                                    color:"#eee",
+                                }
+                            },
+                            axisTick:{
+                                show:false,
+                            },
+                            axisLabel:{
+                                inside:false,
+                                color:"#989898",
+
+                            }
+                        }
+                    ],
+                    yAxis:{
+                        type:'value',
+                        show:true,
+                        axisLine:{
+                            lineStyle:{
+                                color:"#fff"
+                            }
+                        },
+                        splitLine:{
+                            lineStyle:{
+                                type:"dashed",
+                                color:"#f1f1f1",
+                            }
+                        }
+                    },
+                    series:[{
+                        name:"",
+                        type:"line",
+                        symbol:"none",
+                        smooth:true,
+                        itemStyle:{
+                            normal:{
+                                label:{
+                                    color:"#000",
+                                    show:true,
+                                },
+                                lineStyle:{
+                                    width: 4,
+                                    color:{
+                                        type:'linear',
+                                        x:1,
+                                        y:0,
+                                        x2:0,
+                                        y2:1,
+                                        colorStops:[
+                                            {
+                                                offset:0,
+                                                color:'#fff'
+                                            },
+                                            {
+                                                offset:0.2,
+                                                color:'#c8a77c'
+                                            },
+                                            {
+                                                offset:0.8,
+                                                color:'#c8a77c'
+                                            },
+                                            {
+                                                offset:1,
+                                                color:'#fff'
+                                            }
+                                        ]
+                                    },
+                                }
+                            },
+                            // emphasis:{
+                            //     label:{
+                            //         show:true,
+                            //     }
+                            // }
+                        },
+                        data:option.seriesData
+                    }],
+                };
+                myChart.setOption(option)
+            }
+
+            //历史数据
+            function historyData(selectDate) {
+                if(selectDate.length<1){
+                    return
+                }
+                var url = "<%= url %>/api/Main/GetParkUserInfo"
+                if(selectDate && selectDate.length >= 2){
+                    var startDate = selectDate[0];
+                    var endDate = selectDate.pop();
+                    var timePickerShow =  startDate.replace(/-/g, '/') + " - "+ endDate.replace(/-/g, '/');
+                    var bDate = startDate+" 00:00:00";
+                    var eDate = endDate+" 00:00:00";
+                }else if(selectDate && selectDate.length == 1){
+                    var startDate = selectDate[0];
+                    var timePickerShow =  startDate.replace(/-/g, '/');
+                    var bDate = startDate+" 00:00:00";
+                    var eDate = startDate+" 23:59:59";
+                }
+                // else{
+                //     var myDate = new Date();
+                //     var fullYear = myDate.getFullYear();
+                //     var month = myDate.getMonth()+1;
+                //     if(month.toString().length<2){
+                //         month = "0"+month
+                //     }
+                //     var day = myDate.getDate();
+                //
+                //     var myDate2 = new Date(myDate);
+                //     myDate2.setDate(day-7);
+                //     var fullYear2 = myDate2.getFullYear();
+                //     var month2 = myDate2.getMonth()+1;
+                //     if(month2.toString().length<2){
+                //         month2 = "0"+month2
+                //     }
+                //     var day2 = myDate2.getDate();
+                //     var eDate = fullYear+"-"+month+"-"+day+" 00:00:00";
+                //     var bDate = fullYear2+"-"+month2+"-"+day2+"  00:00:00";
+                //     var timePickerShow = fullYear2+"/"+month2+"/"+day2+" - "+ fullYear+"/"+month+"/"+day;
+                // }
+
+                $(".time-picker").text(timePickerShow);
+                $.ajax({
+                    type:"post",
+                    url:url,
+                    data:{
+                        BDATE:bDate,
+                        EDATE:eDate,
+                        PARKCODE :"<%= parkcode%>",
+                    },
+                    dataType:"json",
+                    success:function (data) {
+                        console.log(data)
+                        if(data.isSuc){
+                            var res = data.data[0]
+                            $("#historycheckusercount").text(res.checkusercount);
+                        }
+                    },
+                    error:function (data) {
+                        alert("请求数据失败");
+                    }
+                })
+            };
+
+            // historyData();
+
+        })
+    </script>
+</body>
+</html>
